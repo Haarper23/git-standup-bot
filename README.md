@@ -108,6 +108,43 @@ standup -r ~/projects/* --ai --since "yesterday" --export report.md --hashes
 ╰─────────────────────────────────────────────────╯
 ```
 
+## 🕵️ AI Standup Agent vs AI Summarizer vs Tech Lead Agent
+
+Git Standup Bot includes three distinct AI capabilities:
+
+1. **AI Summarizer** (enabled via `--ai`): Generates a free-form, conversational daily standup summary of recent work.
+2. **Tech Lead Agent** (enabled via `--agent`): Performs high-level architectural, risk, and security analysis of code changes.
+3. **AI Standup Agent** (enabled via `--standup-agent`): Organizes parsed Git activity into exactly four structured sections:
+   - **Completed**: Features, fixes, documentation, refactorings, etc.
+   - **In Progress**: Active draft/WIP items.
+   - **Risks / Blockers**: Reverts, regressions, or explicit blocking items.
+   - **Next Steps**: Actionable, conservative items derived from WIP and risk signals.
+
+### CLI Usage Example
+
+```bash
+# Enable the AI Standup Agent using the auto-detected AI provider
+standup --standup-agent
+
+# Enable offline, deterministic fallback mapping (runs without AI credentials or API calls)
+standup --standup-agent --no-ai
+```
+
+### Fallback & Security Boundaries
+* **Opt-In Behavior**: The AI Standup Agent is fully opt-in and disabled by default. It is separate from the `--agent` switch, which controls the Tech Lead Agent.
+* **Supported Provider Values**: The supported AI provider values are exactly `auto`, `openai`, `gemini`, and `ollama`.
+* **Invalid Provider Configuration**: Providing an invalid provider value from CLI, TOML config, or environment variables fails clearly with a non-zero exit code and controlled error message instead of silently falling back.
+* **Connection Failures**: Expected connection and network-related errors (such as `URLError`, `HTTPError`, `TimeoutError`, `ConnectionError`, `OSError`) trigger deterministic offline fallback gracefully.
+* **Explicit Provider Isolation**: Explicitly choosing a provider (e.g. `--provider gemini` or `--provider ollama`) routes requests strictly to that provider. Explicit providers do not probe alternatives or search local backends.
+* **Ollama Discovery Envelope Validation**: Ollama local model discovery performs strict direct validation of the models/tags list returned by the local backend, preventing raw data indexing errors.
+* **Wrapper Validation**: Provider wrapper responses (including Gemini candidates and Ollama response blocks) are strictly validated before use, and malformed envelopes trigger deterministic fallback.
+* **UTF-8 Byte Bounding**: Commit context and complete prompts are strictly bounded by UTF-8 byte size rather than simple character counts.
+* **Error Propagation**: Unexpected internal programming errors (e.g. `TypeError`, `AttributeError`, `AssertionError`) are not hidden as offline fallback, allowing them to propagate normally.
+* **Security & Sandboxing**: The agent runs purely read-only, never performs Git writes, never creates commits, never pushes, and never runs arbitrary shell commands.
+
+
+
+
 ## ⚙️ Configuration
 
 Create a `.standup.toml` file in your home directory or project root:
@@ -158,18 +195,21 @@ pytest tests/ -v --cov=standup --cov-report=term-missing
 Usage: standup [OPTIONS]
 
 Options:
-  -s, --since TEXT        Time range for commits (default: yesterday)
-  -a, --author TEXT       Filter by author name
-  -r, --repos DIRECTORY   Repository paths (can specify multiple)
-  --ai / --no-ai          Enable/disable AI summary
-  --agent / --no-agent    Enable Tech Lead AI Agent
-  -p, --provider TEXT     AI provider: auto, openai, ollama, or gemini
-  -e, --export PATH       Export report to Markdown file
-  -g, --group-by TEXT     Group by: type, branch, or repo
-  --hashes / --no-hashes  Show/hide commit hashes
-  -c, --config PATH       Path to .standup.toml config file
-  --version               Show version
-  -h, --help              Show this message and exit
+  -s, --since TEXT                Time range for commits (default: yesterday)
+  -a, --author TEXT               Filter by author name
+  -r, --repos DIRECTORY           Repository paths (can specify multiple)
+  --ai / --no-ai                  Enable/disable AI summary
+  --agent / --no-agent            Enable Tech Lead AI Agent
+  --standup-agent / --no-standup-agent
+                                  Enable/disable AI Standup Agent
+  -p, --provider TEXT             AI provider: auto, openai, ollama, or gemini
+  -e, --export PATH               Export report to Markdown file
+  -g, --group-by TEXT             Group by: type, branch, or repo
+  --hashes / --no-hashes          Show/hide commit hashes
+  -c, --config PATH               Path to .standup.toml config file
+  --version                       Show version
+  -h, --help                      Show this message and exit
+
 ```
 
 ## 🌿 Branch Grouping Limitations

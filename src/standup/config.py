@@ -27,6 +27,26 @@ SEARCH_PATHS = [
     Path.home() / CONFIG_FILENAME,
 ]
 
+SUPPORTED_PROVIDERS = frozenset({"auto", "openai", "gemini", "ollama"})
+
+
+class InvalidProviderError(Exception):
+    """Raised when an invalid provider is configured or supplied."""
+
+
+def validate_provider(provider_val: any) -> str:
+    """Validates and normalizes the provider value, raising InvalidProviderError on failure."""
+    if not isinstance(provider_val, str):
+        raise InvalidProviderError(
+            f"Invalid provider {repr(provider_val)}. Expected one of: auto, gemini, ollama, openai."
+        )
+    normalized = provider_val.strip().lower()
+    if not normalized or normalized not in SUPPORTED_PROVIDERS:
+        raise InvalidProviderError(
+            f"Invalid provider '{provider_val}'. Expected one of: auto, gemini, ollama, openai."
+        )
+    return normalized
+
 
 @dataclass
 class AIConfig:
@@ -67,6 +87,7 @@ class Config:
     since: str = "yesterday"
     timezone: str = "UTC"
     repo_paths: list[str] = field(default_factory=list)
+    standup_agent: bool = False
     ai: AIConfig = field(default_factory=AIConfig)
     output: OutputConfig = field(default_factory=OutputConfig)
 
@@ -101,6 +122,7 @@ def load_config(config_path: Path | None = None) -> Config:
         config.author = general.get("author", config.author)
         config.since = general.get("since", config.since)
         config.timezone = general.get("timezone", config.timezone)
+        config.standup_agent = general.get("standup_agent", config.standup_agent)
 
         # Repo paths
         repos = data.get("repos", {})
@@ -131,5 +153,10 @@ def load_config(config_path: Path | None = None) -> Config:
         config.author = os.environ["STANDUP_AUTHOR"]
     if os.environ.get("STANDUP_AI_PROVIDER"):
         config.ai.provider = os.environ["STANDUP_AI_PROVIDER"]
+    if os.environ.get("STANDUP_AGENT"):
+        config.standup_agent = os.environ["STANDUP_AGENT"].lower() in ("true", "1", "yes")
+
+    # Validate and normalize resolved provider
+    config.ai.provider = validate_provider(config.ai.provider)
 
     return config

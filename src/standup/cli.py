@@ -11,12 +11,13 @@ from pathlib import Path
 import click
 from rich.console import Console
 
-from standup.config import load_config
+from standup.config import load_config, InvalidProviderError, validate_provider
 from standup.git_parser import parse_commits, parse_multiple_repos
 from standup.grouper import group_commits
 from standup.ai_summarizer import generate_summary
 from standup.formatter import render_terminal, export_markdown
 from standup.agent import run_developer_agent
+from standup.standup_agent import run_standup_agent
 from standup.encoding_helper import setup_safe_streams
 from standup.timezone_helper import resolve_timezone
 
@@ -56,6 +57,11 @@ console = Console()
     help="Enable Tech Lead AI Agent to analyze commits for security, risk, and code quality.",
 )
 @click.option(
+    "--standup-agent/--no-standup-agent",
+    default=None,
+    help="Enable AI Standup Agent to generate structured Completed/In Progress/Risks/Next Steps sections.",
+)
+@click.option(
     "--provider", "-p",
     type=click.Choice(["auto", "openai", "ollama", "gemini"], case_sensitive=False),
     default=None,
@@ -93,6 +99,7 @@ def main(
     repos: tuple[str, ...],
     ai: bool | None,
     agent: bool,
+    standup_agent: bool | None,
     provider: str | None,
     export_path: str | None,
     group_by: str | None,
@@ -114,7 +121,11 @@ def main(
     """
     # Load config file
     cfg_path = Path(config_path) if config_path else None
-    cfg = load_config(cfg_path)
+    try:
+        cfg = load_config(cfg_path)
+    except InvalidProviderError as e:
+        sys.stderr.write(f"Error: {e}\n")
+        sys.exit(1)
 
     # Resolve timezone
     try:
@@ -132,7 +143,15 @@ def main(
 
     # AI settings
     effective_ai = ai if ai is not None else cfg.ai.enabled
-    effective_provider = provider or cfg.ai.provider
+
+    # Resolve and validate provider
+    try:
+        effective_provider = validate_provider(provider or cfg.ai.provider)
+    except InvalidProviderError as e:
+        sys.stderr.write(f"Error: {e}\n")
+        sys.exit(1)
+
+    effective_standup_agent = standup_agent if standup_agent is not None else cfg.standup_agent
 
     # Resolve repo paths
     if repos:
@@ -237,6 +256,26 @@ def main(
             gemini_api_key=cfg.ai.gemini_api_key,
         )
 
+    # Standup Agent Assessment (optional AI Standup Agent)
+    standup_assessment = None
+    if effective_standup_agent:
+        if effective_ai:
+            console.print("[dim]🤖 AI Standup Agent analyzing activity...[/dim]")
+            standup_assessment = run_standup_agent(
+                commits,
+                provider=effective_provider,
+                api_key=cfg.ai.api_key,
+                openai_model=cfg.ai.openai_model,
+                ollama_model=cfg.ai.ollama_model,
+                ollama_url=cfg.ai.ollama_url,
+                gemini_model=cfg.ai.gemini_model,
+                gemini_api_key=cfg.ai.gemini_api_key,
+            )
+        else:
+            # --no-ai blocks LLM requests and runs deterministic local fallback
+            from standup.standup_agent import get_deterministic_fallback
+            standup_assessment = get_deterministic_fallback(commits)
+
     # Render to terminal
     render_terminal(
         repo_groups,
@@ -245,6 +284,7 @@ def main(
         show_hashes=effective_show_hashes,
         agent_assessment=agent_assessment,
         timezone=effective_timezone,
+        standup_assessment=standup_assessment,
     )
 
     # Export to file if requested
@@ -257,6 +297,7 @@ def main(
             show_hashes=effective_show_hashes,
             agent_assessment=agent_assessment,
             timezone=effective_timezone,
+            standup_assessment=standup_assessment,
         )
         console.print(f"[green]✅ Report exported to {out}[/green]")
 
