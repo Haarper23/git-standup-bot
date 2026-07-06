@@ -20,6 +20,8 @@ jobs:
   test:
     name: Test (Python ${{ matrix.python-version }} on ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    env:
+      TZ: Europe/Paris
     strategy:
       fail-fast: false
       matrix:
