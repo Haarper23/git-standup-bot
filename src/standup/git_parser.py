@@ -6,7 +6,8 @@ Runs `git log` via subprocess and parses the output into structured Commit objec
 from __future__ import annotations
 
 import re
-import subprocess
+import shutil
+import subprocess  # nosec B404
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -90,14 +91,15 @@ def _get_current_branch(repo_path: Path) -> str:
         Current branch name or 'unknown'.
     """
     try:
+        git_path = shutil.which("git") or "git"
         result = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            [git_path, "rev-parse", "--abbrev-ref", "HEAD"],
             capture_output=True,
             text=True,
             encoding="utf-8",
             cwd=str(repo_path),
             timeout=10,
-        )
+        )  # nosec B603
         if result.returncode == 0:
             return result.stdout.strip()
     except (subprocess.TimeoutExpired, FileNotFoundError):
@@ -115,14 +117,15 @@ def _get_git_user(repo_path: Path) -> str:
         Git user name or empty string.
     """
     try:
+        git_path = shutil.which("git") or "git"
         result = subprocess.run(
-            ["git", "config", "user.name"],
+            [git_path, "config", "user.name"],
             capture_output=True,
             text=True,
             encoding="utf-8",
             cwd=str(repo_path),
             timeout=10,
-        )
+        )  # nosec B603
         if result.returncode == 0:
             return result.stdout.strip()
     except (subprocess.TimeoutExpired, FileNotFoundError):
@@ -159,8 +162,10 @@ def parse_commits(
         author = _get_git_user(repo_path)
 
     # Build git log command
+    # Resolve full git path to avoid partial path issues (B607)
+    git_path = shutil.which("git") or "git"
     cmd = [
-        "git", "log",
+        git_path, "log",
         f"--since={since}",
         f"--format={RECORD_SEP}{GIT_LOG_FORMAT}",
         "--all",
@@ -176,7 +181,7 @@ def parse_commits(
             encoding="utf-8",
             cwd=str(repo_path),
             timeout=30,
-        )
+        )  # nosec B603
     except subprocess.TimeoutExpired:
         raise RuntimeError(f"Git command timed out for {repo_path}")
     except FileNotFoundError:

@@ -118,13 +118,17 @@ def summarize_ollama(
         "options": {"temperature": 0.3},
     }).encode("utf-8")
 
+    # Validate URL scheme to prevent file:// and other unexpected protocol handlers
+    if not (base_url.startswith("http://") or base_url.startswith("https://")):
+        return None
+
     try:
         req = urllib.request.Request(
             f"{base_url}/api/generate",
             data=payload,
             headers={"Content-Type": "application/json"},
         )
-        with urllib.request.urlopen(req, timeout=60) as resp:
+        with urllib.request.urlopen(req, timeout=60) as resp:  # nosec B310
             data = json.loads(resp.read().decode("utf-8"))
             return data.get("response")
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError):
@@ -161,13 +165,17 @@ def summarize_gemini(
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
 
+    # Validate URL scheme to prevent file:// and other unexpected protocol handlers
+    if not url.startswith("https://"):
+        return None
+
     try:
         req = urllib.request.Request(
             url,
             data=payload,
             headers={"Content-Type": "application/json"},
         )
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310
             data = json.loads(resp.read().decode("utf-8"))
             # Extracts text from response: data['candidates'][0]['content']['parts'][0]['text']
             return data["candidates"][0]["content"]["parts"][0]["text"]
