@@ -94,6 +94,7 @@ def _get_current_branch(repo_path: Path) -> str:
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
             cwd=str(repo_path),
             timeout=10,
         )
@@ -118,6 +119,7 @@ def _get_git_user(repo_path: Path) -> str:
             ["git", "config", "user.name"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
             cwd=str(repo_path),
             timeout=10,
         )
@@ -171,6 +173,7 @@ def parse_commits(
             cmd,
             capture_output=True,
             text=True,
+            encoding="utf-8",
             cwd=str(repo_path),
             timeout=30,
         )
