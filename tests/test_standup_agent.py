@@ -82,7 +82,7 @@ def test_validate_provider_invalid_values():
 def test_config_without_provider_still_loads():
     """Verify config without a provider block falls back to default auto provider."""
     # Mock loaded dict missing ai.provider
-    with patch("tomllib.load", return_value={"general": {"author": "Test"}}), \
+    with patch("standup.config.tomllib.load", return_value={"general": {"author": "Test"}}), \
          patch("builtins.open", MagicMock()):
         cfg = load_config(Path(".standup.toml"))
         assert cfg.ai.provider == "auto"
