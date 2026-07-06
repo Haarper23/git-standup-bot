@@ -24,7 +24,7 @@ Git Standup Bot scans your git repositories, parses recent commits, groups them 
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/git-standup-bot.git
+git clone https://github.com/Haarper23/git-standup-bot.git
 cd git-standup-bot
 
 # Install with pip
