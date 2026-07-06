@@ -17,9 +17,18 @@ from standup.grouper import RepoGroup
 from standup.agent import AgentAssessment
 
 
-def _now_header() -> str:
+def _now_header(tz: datetime.tzinfo | None = None, now: datetime | None = None) -> str:
     """Get formatted current date string for report header."""
-    now = datetime.now()
+    if now is None:
+        now = datetime.now(tz)
+    else:
+        if tz:
+            if now.tzinfo is None:
+                from datetime import timezone as dt_tz
+                now = now.replace(tzinfo=dt_tz.utc).astimezone(tz)
+            else:
+                now = now.astimezone(tz)
+
     return now.strftime("%Y-%m-%d (%A)")
 
 
@@ -29,6 +38,7 @@ def render_terminal(
     ai_summary: str | None = None,
     show_hashes: bool = False,
     agent_assessment: AgentAssessment | None = None,
+    timezone: datetime.tzinfo | None = None,
 ) -> None:
     """Render the standup report to the terminal using rich.
 
@@ -38,6 +48,7 @@ def render_terminal(
         ai_summary: Optional AI-generated summary.
         show_hashes: Whether to show commit hashes.
         agent_assessment: Optional Tech Lead Agent assessment.
+        timezone: Optional configured timezone.
     """
     console = Console()
 
@@ -46,7 +57,7 @@ def render_terminal(
 
     # Header panel
     header_lines = [
-        f"🚀 Standup Report — {_now_header()}",
+        f"🚀 Standup Report — {_now_header(timezone)}",
         f"Author: {author or 'All'} │ Repos: {total_repos} │ Commits: {total_commits}",
     ]
     console.print()
@@ -168,6 +179,7 @@ def render_markdown(
     ai_summary: str | None = None,
     show_hashes: bool = False,
     agent_assessment: AgentAssessment | None = None,
+    timezone: datetime.tzinfo | None = None,
 ) -> str:
     """Render the standup report as a Markdown string.
 
@@ -177,6 +189,7 @@ def render_markdown(
         ai_summary: Optional AI-generated summary.
         show_hashes: Whether to show commit hashes.
         agent_assessment: Optional Tech Lead Agent assessment.
+        timezone: Optional configured tzinfo object.
 
     Returns:
         Complete Markdown report string.
@@ -185,7 +198,7 @@ def render_markdown(
     total_commits = sum(rg.total_commits for rg in repo_groups)
 
     # Header
-    lines.append(f"# 🚀 Standup Report — {_now_header()}")
+    lines.append(f"# 🚀 Standup Report — {_now_header(timezone)}")
     lines.append("")
     lines.append(
         f"**Author:** {author or 'All'} | "
@@ -257,6 +270,7 @@ def export_markdown(
     ai_summary: str | None = None,
     show_hashes: bool = False,
     agent_assessment: AgentAssessment | None = None,
+    timezone: datetime.tzinfo | None = None,
 ) -> Path:
     """Export the standup report to a Markdown file.
 
@@ -267,6 +281,7 @@ def export_markdown(
         ai_summary: Optional AI-generated summary.
         show_hashes: Whether to show commit hashes.
         agent_assessment: Optional Tech Lead Agent assessment.
+        timezone: Optional configured tzinfo object.
 
     Returns:
         Path to the written file.
@@ -277,6 +292,7 @@ def export_markdown(
         ai_summary=ai_summary,
         show_hashes=show_hashes,
         agent_assessment=agent_assessment,
+        timezone=timezone,
     )
 
     path = Path(output_path)

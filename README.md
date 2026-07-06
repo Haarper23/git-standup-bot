@@ -8,17 +8,19 @@
 
 ---
 
-Git Standup Bot scans your git repositories, parses recent commits, groups them by type (using [Conventional Commits](https://www.conventionalcommits.org/)), and renders a beautiful standup report — right in your terminal. Optionally, it uses AI (OpenAI or local Ollama) to generate a natural-language summary.
+Git Standup Bot scans your git repositories, parses recent commits, groups them by type (using [Conventional Commits](https://www.conventionalcommits.org/)), and renders a beautiful standup report — right in your terminal. Optionally, it uses AI (OpenAI, Google Gemini, or local Ollama) to generate a natural-language summary.
 
 ## ✨ Features
 
 - 📊 **Beautiful Terminal Output** — Rich tables, panels, and emoji via `rich`
 - 🏷️ **Conventional Commit Grouping** — Auto-detects `feat`, `fix`, `docs`, `refactor`, etc.
-- 🤖 **AI Summary (Optional)** — OpenAI GPT-4o-mini or local Ollama
+- 🤖 **AI Summary (Optional)** — OpenAI GPT-4o-mini, Google Gemini, or local Ollama
+- 🕵️ **Tech Lead AI Agent (Optional)** — Analyze risk, architecture, and code quality in commits
 - 📁 **Multi-Repo Support** — Scan multiple repositories in one go
 - 📝 **Markdown Export** — Save reports as `.md` files
 - ⚙️ **Configurable** — `.standup.toml` config file with sensible defaults
 - 🎯 **Zero Config Required** — Works out of the box on any git repo
+- 🔒 **Encoding-Safe Output** — Automated CP1254/ASCII fallbacks for Windows CMD/PowerShell compatibility
 
 ## 📦 Installation
 
@@ -123,7 +125,7 @@ paths = [
 
 [ai]
 enabled = false             # Set to true to always use AI
-provider = "openai"         # "openai" or "ollama"
+provider = "auto"           # "auto", "openai", "ollama", or "gemini"
 openai_model = "gpt-4o-mini"
 ollama_model = "llama3.1"
 ollama_url = "http://localhost:11434"
@@ -159,7 +161,8 @@ Options:
   -a, --author TEXT       Filter by author name
   -r, --repos DIRECTORY   Repository paths (can specify multiple)
   --ai / --no-ai          Enable/disable AI summary
-  -p, --provider TEXT     AI provider: openai or ollama
+  --agent / --no-agent    Enable Tech Lead AI Agent
+  -p, --provider TEXT     AI provider: auto, openai, ollama, or gemini
   -e, --export PATH       Export report to Markdown file
   -g, --group-by TEXT     Group by: type, branch, or repo
   --hashes / --no-hashes  Show/hide commit hashes
@@ -168,14 +171,24 @@ Options:
   -h, --help              Show this message and exit
 ```
 
+## 🌿 Branch Grouping Limitations
+
+When using `--group-by branch`, Git Standup Bot groups commits by their active branch tip decorations (retrieved using `%D` format in `git log`).
+
+> [!NOTE]
+> **Git limitation:** Git is content-addressable and commit-history is a directed acyclic graph. Commits do not store the name of the branch they were originally committed to.
+> Therefore, once branches are merged, or if commits are historical parents, direct branch ref decorations are not present. Undecorated historical commits will default to the currently checked-out branch at runtime.
+
 ## 🏗️ Architecture
 
 ```
 src/standup/
 ├── cli.py              # Click CLI entry point
+├── encoding_helper.py  # CP1254/ASCII stream-writing sanitization
+├── timezone_helper.py  # Shared timezone resolution boundary
 ├── git_parser.py       # Git log parsing via subprocess
 ├── grouper.py          # Commit grouping (type/branch/repo)
-├── ai_summarizer.py    # OpenAI + Ollama integration
+├── ai_summarizer.py    # OpenAI + Ollama + Gemini integration
 ├── formatter.py        # Rich terminal + Markdown output
 └── config.py           # TOML config loader
 ```

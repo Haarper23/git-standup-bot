@@ -5,6 +5,7 @@ Runs `git log` via subprocess and parses the output into structured Commit objec
 
 from __future__ import annotations
 
+import os
 import re
 import shutil
 import subprocess  # nosec B404
@@ -81,6 +82,39 @@ def _extract_branch(refs: str) -> str:
     return "unknown"
 
 
+def _get_repo_root(path: Path) -> Path:
+    """Get the actual Git repository root using `git rev-parse --show-toplevel`.
+
+    Raises:
+        FileNotFoundError: If the path is not a directory.
+        RuntimeError: If the path is not inside a git repository.
+    """
+    if not path.is_dir():
+        raise FileNotFoundError(f"Directory not found: {path}")
+
+    git_path = shutil.which("git") or "git"
+    try:
+        result = subprocess.run(
+            [git_path, "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            cwd=str(path),
+            timeout=10,
+        )  # nosec B603
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(f"Git command timed out checking repo root for {path}")
+    except FileNotFoundError:
+        raise RuntimeError("Git is not installed or not in PATH")
+
+    if result.returncode != 0:
+        stderr = result.stderr.strip()
+        raise RuntimeError(f"Not a git repository: {path} ({stderr})")
+
+    resolved = Path(result.stdout.strip()).resolve()
+    return resolved
+
+
 def _get_current_branch(repo_path: Path) -> str:
     """Get the current branch name of a repository.
 
@@ -153,13 +187,11 @@ def parse_commits(
         RuntimeError: If git command fails.
     """
     repo_path = Path(repo_path).resolve()
-
-    if not repo_path.is_dir():
-        raise FileNotFoundError(f"Repository not found: {repo_path}")
+    resolved_root = _get_repo_root(repo_path)
 
     # Resolve author
     if not author:
-        author = _get_git_user(repo_path)
+        author = _get_git_user(resolved_root)
 
     # Build git log command
     # Resolve full git path to avoid partial path issues (B607)
@@ -179,11 +211,11 @@ def parse_commits(
             capture_output=True,
             text=True,
             encoding="utf-8",
-            cwd=str(repo_path),
+            cwd=str(resolved_root),
             timeout=30,
         )  # nosec B603
     except subprocess.TimeoutExpired:
-        raise RuntimeError(f"Git command timed out for {repo_path}")
+        raise RuntimeError(f"Git command timed out for {resolved_root}")
     except FileNotFoundError:
         raise RuntimeError("Git is not installed or not in PATH")
 
@@ -192,13 +224,13 @@ def parse_commits(
         # Empty results are not an error
         if "does not have any commits" in stderr or not stderr:
             return []
-        raise RuntimeError(f"Git error in {repo_path}: {stderr}")
+        raise RuntimeError(f"Git error in {resolved_root}: {stderr}")
 
-    # Get repo name from directory
-    repo_name = repo_path.name
+    # Get repo name from resolved repository root directory
+    repo_name = resolved_root.name
 
     # Get current branch as fallback
-    current_branch = _get_current_branch(repo_path)
+    current_branch = _get_current_branch(resolved_root)
 
     # Parse output
     commits: list[Commit] = []
@@ -252,7 +284,7 @@ def parse_multiple_repos(
     repo_paths: list[str | Path],
     since: str = "yesterday",
     author: str = "",
-) -> list[Commit]:
+) -> tuple[list[Commit], dict[str, str]]:
     """Parse commits from multiple repositories.
 
     Args:
@@ -261,17 +293,29 @@ def parse_multiple_repos(
         author: Filter by author name.
 
     Returns:
-        Combined list of commits from all repos, sorted by date descending.
+        A tuple containing:
+            - list[Commit]: Combined list of commits from all succeeded repos, sorted by date descending.
+            - dict[str, str]: Dictionary mapping failed repository paths to their error message.
     """
     all_commits: list[Commit] = []
+    errors: dict[str, str] = {}
+    processed_roots: set[str] = set()
 
     for path in repo_paths:
         try:
-            commits = parse_commits(path, since=since, author=author)
+            p = Path(path).resolve()
+            resolved_root = _get_repo_root(p)
+
+            # Case-insensitive/platform-aware comparison for Windows path deduplication
+            canonical_key = os.path.normcase(str(resolved_root))
+            if canonical_key in processed_roots:
+                continue
+            processed_roots.add(canonical_key)
+
+            commits = parse_commits(resolved_root, since=since, author=author)
             all_commits.extend(commits)
-        except (FileNotFoundError, RuntimeError):
-            # Skip invalid repos silently — formatter will show which repos were found
-            continue
+        except (FileNotFoundError, RuntimeError) as e:
+            errors[str(path)] = str(e)
 
     all_commits.sort(key=lambda c: c.date, reverse=True)
-    return all_commits
+    return all_commits, errors
