@@ -47,9 +47,9 @@ console = Console()
 )
 @click.option(
     "--provider", "-p",
-    type=click.Choice(["openai", "ollama", "gemini"], case_sensitive=False),
+    type=click.Choice(["auto", "openai", "ollama", "gemini"], case_sensitive=False),
     default=None,
-    help="AI provider to use. (default: openai)",
+    help="AI provider to use. (default: auto)",
 )
 @click.option(
     "--export", "-e",
@@ -178,10 +178,18 @@ def main(
                     "[yellow]⚠ AI summary unavailable. "
                     "Set GEMINI_API_KEY environment variable.[/yellow]"
                 )
-            else:
+            elif effective_provider == "ollama":
                 console.print(
                     "[yellow]⚠ AI summary unavailable. "
                     "Make sure Ollama is running.[/yellow]"
+                )
+            else:  # "auto" provider failed to resolve any active backend
+                console.print(
+                    "[yellow]⚠ AI summary unavailable. "
+                    "To enable AI summaries, you can:\n"
+                    "  1. Start local Ollama (highly recommended, free)\n"
+                    "  2. Set GEMINI_API_KEY environment variable\n"
+                    "  3. Set OPENAI_API_KEY environment variable[/yellow]"
                 )
 
     # Render to terminal

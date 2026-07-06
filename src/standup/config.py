@@ -33,7 +33,7 @@ class AIConfig:
     """AI summarization settings."""
 
     enabled: bool = False
-    provider: str = "openai"  # "openai" or "ollama"
+    provider: str = "auto"  # "auto", "openai", "ollama", or "gemini"
     openai_model: str = "gpt-4o-mini"
     ollama_model: str = "llama3.1"
     ollama_url: str = "http://localhost:11434"
@@ -111,7 +111,7 @@ def load_config(config_path: Path | None = None) -> Config:
         ai_data = data.get("ai", {})
         config.ai = AIConfig(
             enabled=ai_data.get("enabled", False),
-            provider=ai_data.get("provider", "openai"),
+            provider=ai_data.get("provider", "auto"),
             openai_model=ai_data.get("openai_model", "gpt-4o-mini"),
             ollama_model=ai_data.get("ollama_model", "llama3.1"),
             ollama_url=ai_data.get("ollama_url", "http://localhost:11434"),

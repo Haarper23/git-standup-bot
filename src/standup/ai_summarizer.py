@@ -183,9 +183,70 @@ def summarize_gemini(
         return None
 
 
+def get_local_ollama_models(base_url: str = "http://localhost:11434") -> list[str]:
+    """Fetch installed models from local Ollama instance.
+
+    Returns:
+        List of installed model names, or empty list if offline.
+    """
+    if not (base_url.startswith("http://") or base_url.startswith("https://")):
+        return []
+
+    try:
+        req = urllib.request.Request(
+            f"{base_url}/api/tags",
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=2) as resp:  # nosec B310
+            data = json.loads(resp.read().decode("utf-8"))
+            return [m["name"] for m in data.get("models", [])]
+    except Exception:
+        return []
+
+
+def select_best_ollama_model(installed_models: list[str], configured_model: str) -> str:
+    """Select the best available model from installed Ollama models.
+
+    Args:
+        installed_models: List of model names returned by Ollama.
+        configured_model: Default configured model.
+
+    Returns:
+        Best model name.
+    """
+    if not installed_models:
+        return configured_model
+
+    # Check if configured model is installed (exact or tag mismatch)
+    for model in installed_models:
+        if model == configured_model or model.split(":")[0] == configured_model.split(":")[0]:
+            return model
+
+    # Priority list based on common/popular models in user settings
+    priority_keywords = [
+        "deepseek-r1",
+        "gemma4",
+        "llama3.1",
+        "qwen3.6",
+        "qwen3",
+        "llama3",
+        "mistral",
+        "gemma",
+    ]
+
+    for keyword in priority_keywords:
+        for model in installed_models:
+            # Check if keyword is in the model name (e.g. 'deepseek-r1:8b')
+            if keyword in model.lower():
+                return model
+
+    # Fallback to the first installed model
+    return installed_models[0]
+
+
 def generate_summary(
     commits: list[Commit],
-    provider: str = "openai",
+    provider: str = "auto",
     api_key: str | None = None,
     openai_model: str = "gpt-4o-mini",
     ollama_model: str = "llama3.1",
@@ -195,12 +256,13 @@ def generate_summary(
 ) -> str | None:
     """Generate an AI summary using the configured provider.
 
-    Tries the specified provider first, returns None on failure.
-    Never raises exceptions — AI summary is always optional.
+    Tries the specified provider first. If provider is "auto",
+    automatically detects the best available provider in order:
+    Ollama (if online) -> Gemini (if key set) -> OpenAI (if key set).
 
     Args:
         commits: List of commits to summarize.
-        provider: "openai", "ollama", or "gemini".
+        provider: "auto", "openai", "ollama", or "gemini".
         api_key: OpenAI API key.
         openai_model: OpenAI model name.
         ollama_model: Ollama model name.
@@ -214,10 +276,30 @@ def generate_summary(
     if not commits:
         return None
 
-    provider = provider.lower()
-    if provider == "ollama":
-        return summarize_ollama(commits, model=ollama_model, base_url=ollama_url)
-    elif provider == "gemini":
+    resolved_provider = provider.lower()
+    ollama_models = get_local_ollama_models(ollama_url)
+    is_ollama_online = len(ollama_models) > 0
+
+    # Auto-detection routing
+    if resolved_provider == "auto":
+        if is_ollama_online:
+            resolved_provider = "ollama"
+        elif gemini_api_key:
+            resolved_provider = "gemini"
+        elif api_key:
+            resolved_provider = "openai"
+        else:
+            # No provider available
+            return None
+
+    # Run the resolved provider
+    if resolved_provider == "ollama":
+        # Automatically select the best installed model
+        selected_model = select_best_ollama_model(ollama_models, ollama_model)
+        return summarize_ollama(commits, model=selected_model, base_url=ollama_url)
+    elif resolved_provider == "gemini":
         return summarize_gemini(commits, model=gemini_model, api_key=gemini_api_key)
-    else:
+    elif resolved_provider == "openai":
         return summarize_openai(commits, model=openai_model, api_key=api_key)
+
+    return None

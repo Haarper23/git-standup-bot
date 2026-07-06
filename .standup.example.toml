@@ -23,8 +23,8 @@ paths = [
 # Enable AI-powered summary generation
 enabled = false
 
-# AI provider: "openai" or "ollama"
-provider = "openai"
+# AI provider: "auto", "openai", "gemini", or "ollama"
+provider = "auto"
 
 # OpenAI model (used when provider = "openai")
 openai_model = "gpt-4o-mini"
