@@ -15,6 +15,7 @@ from rich.text import Text
 
 from standup.grouper import RepoGroup
 from standup.agent import AgentAssessment
+from standup.standup_agent import StandupAssessment
 
 
 def _now_header(tz: datetime.tzinfo | None = None, now: datetime | None = None) -> str:
@@ -39,6 +40,7 @@ def render_terminal(
     show_hashes: bool = False,
     agent_assessment: AgentAssessment | None = None,
     timezone: datetime.tzinfo | None = None,
+    standup_assessment: StandupAssessment | None = None,
 ) -> None:
     """Render the standup report to the terminal using rich.
 
@@ -75,7 +77,8 @@ def render_terminal(
             "  [dim italic]No commits found for the specified period.[/dim italic]"
         )
         console.print()
-        return
+        if not standup_assessment:
+            return
 
     # Render each repo
     for rg in repo_groups:
@@ -170,6 +173,39 @@ def render_terminal(
             )
         )
 
+    # AI Standup Agent
+    if standup_assessment:
+        console.print()
+        agent_text = Text()
+        agent_text.append("🤖 AI Standup Agent:\n", style="bold bright_green")
+
+        if standup_assessment.warning:
+            agent_text.append(f"\n⚠️ Warning: {standup_assessment.warning}\n", style="yellow")
+
+        agent_text.append("\nCompleted:\n", style="bold green")
+        for item in standup_assessment.completed:
+            agent_text.append(f"  - {item}\n", style="")
+
+        agent_text.append("\nIn Progress:\n", style="bold blue")
+        for item in standup_assessment.in_progress:
+            agent_text.append(f"  - {item}\n", style="")
+
+        agent_text.append("\nRisks / Blockers:\n", style="bold red")
+        for item in standup_assessment.risks_blockers:
+            agent_text.append(f"  - {item}\n", style="")
+
+        agent_text.append("\nNext Steps:\n", style="bold magenta")
+        for item in standup_assessment.next_steps:
+            agent_text.append(f"  - {item}\n", style="")
+
+        console.print(
+            Panel(
+                agent_text,
+                border_style="bright_green",
+                padding=(1, 2),
+            )
+        )
+
     console.print()
 
 
@@ -180,6 +216,7 @@ def render_markdown(
     show_hashes: bool = False,
     agent_assessment: AgentAssessment | None = None,
     timezone: datetime.tzinfo | None = None,
+    standup_assessment: StandupAssessment | None = None,
 ) -> str:
     """Render the standup report as a Markdown string.
 
@@ -211,7 +248,8 @@ def render_markdown(
 
     if total_commits == 0:
         lines.append("_No commits found for the specified period._")
-        return "\n".join(lines)
+        if not standup_assessment:
+            return "\n".join(lines)
 
     # Repos
     for rg in repo_groups:
@@ -259,6 +297,40 @@ def render_markdown(
             for item in agent_assessment.recommended_next_steps:
                 lines.append(f"- {item}")
             lines.append("")
+    # AI Standup Agent
+    if standup_assessment:
+        lines.append("---")
+        lines.append("")
+        lines.append("## 🤖 AI Standup Agent")
+        lines.append("")
+        if standup_assessment.warning:
+            lines.append("> [!WARNING]")
+            lines.append(f"> {standup_assessment.warning}")
+            lines.append("")
+
+        lines.append("### Completed")
+        lines.append("")
+        for item in standup_assessment.completed:
+            lines.append(f"- {item}")
+        lines.append("")
+
+        lines.append("### In Progress")
+        lines.append("")
+        for item in standup_assessment.in_progress:
+            lines.append(f"- {item}")
+        lines.append("")
+
+        lines.append("### Risks / Blockers")
+        lines.append("")
+        for item in standup_assessment.risks_blockers:
+            lines.append(f"- {item}")
+        lines.append("")
+
+        lines.append("### Next Steps")
+        lines.append("")
+        for item in standup_assessment.next_steps:
+            lines.append(f"- {item}")
+        lines.append("")
 
     return "\n".join(lines)
 
@@ -271,6 +343,7 @@ def export_markdown(
     show_hashes: bool = False,
     agent_assessment: AgentAssessment | None = None,
     timezone: datetime.tzinfo | None = None,
+    standup_assessment: StandupAssessment | None = None,
 ) -> Path:
     """Export the standup report to a Markdown file.
 
@@ -282,6 +355,7 @@ def export_markdown(
         show_hashes: Whether to show commit hashes.
         agent_assessment: Optional Tech Lead Agent assessment.
         timezone: Optional configured tzinfo object.
+        standup_assessment: Optional Standup Agent assessment.
 
     Returns:
         Path to the written file.
@@ -293,6 +367,7 @@ def export_markdown(
         show_hashes=show_hashes,
         agent_assessment=agent_assessment,
         timezone=timezone,
+        standup_assessment=standup_assessment,
     )
 
     path = Path(output_path)
