@@ -33,3 +33,6 @@ standup-*.md
 # Environment
 .env
 .env.local
+
+# Testing cache
+.pytest_cache/

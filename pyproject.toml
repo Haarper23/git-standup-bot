@@ -10,7 +10,7 @@ readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 authors = [
-    { name = "Your Name", email = "you@example.com" },
+    { name = "Berke Emre Deveci", email = "emrebkrdvc@gmail.com" },
 ]
 keywords = ["git", "standup", "cli", "ai", "developer-tools"]
 classifiers = [
@@ -30,6 +30,7 @@ dependencies = [
     "rich>=13.0",
     "tomli>=2.0; python_version < '3.11'",
     "openai>=1.0",
+    "tzdata",
 ]
 
 [project.optional-dependencies]

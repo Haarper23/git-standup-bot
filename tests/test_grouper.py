@@ -153,3 +153,15 @@ class TestGroupCommits:
         result = group_commits(commits, group_by="branch")
         assert len(result) == 1  # single repo
         assert len(result[0].groups) == 2  # two branches
+
+    def test_group_by_branch_undecorated_commits(self):
+        """Verify that branch grouping handles undecorated commits deterministically."""
+        commits = [
+            _commit("feat: a", branch="main"),
+            _commit("feat: b", branch="unknown"),
+        ]
+        result = group_commits(commits, group_by="branch")
+        assert len(result) == 1
+        branch_labels = [g.label for g in result[0].groups]
+        assert "main" in branch_labels
+        assert "unknown" in branch_labels

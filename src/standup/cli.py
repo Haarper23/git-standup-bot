@@ -17,7 +17,11 @@ from standup.grouper import group_commits
 from standup.ai_summarizer import generate_summary
 from standup.formatter import render_terminal, export_markdown
 from standup.agent import run_developer_agent
+from standup.encoding_helper import setup_safe_streams
+from standup.timezone_helper import resolve_timezone
 
+# Initialize stream wrapping for CP1254 and other non-UTF-8 consoles
+setup_safe_streams()
 
 console = Console()
 
@@ -68,7 +72,7 @@ console = Console()
     "--group-by", "-g",
     type=click.Choice(["type", "branch", "repo"], case_sensitive=False),
     default=None,
-    help="How to group commits. (default: type)",
+    help="How to group commits: 'type' (conventional type), 'branch' (groups by active/tip branch ref decoration; historical branch membership is not preserved by Git), or 'repo'. (default: type)",
 )
 @click.option(
     "--hashes/--no-hashes",
@@ -112,6 +116,13 @@ def main(
     cfg_path = Path(config_path) if config_path else None
     cfg = load_config(cfg_path)
 
+    # Resolve timezone
+    try:
+        effective_timezone = resolve_timezone(cfg.timezone)
+    except ValueError as e:
+        sys.stderr.write(f"Error: {e}\n")
+        sys.exit(1)
+
     # CLI arguments override config values
     effective_since = since or cfg.since
     effective_author = author or cfg.author
@@ -125,13 +136,15 @@ def main(
 
     # Resolve repo paths
     if repos:
-        repo_paths = [str(Path(r).resolve()) for r in repos]
+        repo_paths = list(dict.fromkeys(str(Path(r).resolve()) for r in repos))
     elif cfg.repo_paths:
-        repo_paths = cfg.repo_paths
+        repo_paths = list(dict.fromkeys(cfg.repo_paths))
     else:
         repo_paths = [str(Path.cwd())]
 
     # Parse commits
+    commits = []
+    errors = {}
     try:
         if len(repo_paths) == 1:
             commits = parse_commits(
@@ -140,17 +153,27 @@ def main(
                 author=effective_author,
             )
         else:
-            commits = parse_multiple_repos(
+            commits, errors = parse_multiple_repos(
                 repo_paths,
                 since=effective_since,
                 author=effective_author,
             )
-    except RuntimeError as e:
-        console.print(f"[red bold]Error:[/red bold] {e}")
+    except (RuntimeError, FileNotFoundError) as e:
+        sys.stderr.write(f"Error: {e}\n")
         sys.exit(1)
-    except FileNotFoundError as e:
-        console.print(f"[red bold]Error:[/red bold] {e}")
-        sys.exit(1)
+
+    # Handle multi-repo errors
+    if errors:
+        stderr_console = Console(stderr=True)
+        if len(errors) == len(repo_paths):
+            stderr_console.print("[red bold]Error: All repositories failed to parse:[/red bold]")
+            for p, reason in errors.items():
+                stderr_console.print(f"  - {p}: {reason}")
+            sys.exit(1)
+        else:
+            stderr_console.print("[yellow bold]Warning: The following repositories were skipped due to errors:[/yellow bold]")
+            for p, reason in errors.items():
+                stderr_console.print(f"  - {p}: {reason}")
 
     # Resolve author for display
     display_author = effective_author
@@ -221,6 +244,7 @@ def main(
         ai_summary=ai_summary,
         show_hashes=effective_show_hashes,
         agent_assessment=agent_assessment,
+        timezone=effective_timezone,
     )
 
     # Export to file if requested
@@ -232,6 +256,7 @@ def main(
             ai_summary=ai_summary,
             show_hashes=effective_show_hashes,
             agent_assessment=agent_assessment,
+            timezone=effective_timezone,
         )
         console.print(f"[green]✅ Report exported to {out}[/green]")
 

@@ -112,9 +112,10 @@ class TestParseCommits:
             records.append(RECORD_SEP + record)
         return "".join(records)
 
+    @patch("standup.git_parser._get_repo_root", side_effect=lambda p: p)
     @patch("standup.git_parser.subprocess.run")
     @patch("standup.git_parser.Path.is_dir", return_value=True)
-    def test_parse_single_commit(self, mock_isdir, mock_run):
+    def test_parse_single_commit(self, mock_isdir, mock_run, mock_get_root):
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_result.stdout = self._mock_git_output(
@@ -129,9 +130,10 @@ class TestParseCommits:
         assert commits[0].subject == "feat: add login page"
         assert commits[0].short_hash == "abcdef1"
 
+    @patch("standup.git_parser._get_repo_root", side_effect=lambda p: p)
     @patch("standup.git_parser.subprocess.run")
     @patch("standup.git_parser.Path.is_dir", return_value=True)
-    def test_parse_multiple_commits(self, mock_isdir, mock_run):
+    def test_parse_multiple_commits(self, mock_isdir, mock_run, mock_get_root):
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_result.stdout = self._mock_git_output(
@@ -148,9 +150,10 @@ class TestParseCommits:
         assert commits[0].subject == "feat: first"
         assert commits[1].subject == "fix: second"
 
+    @patch("standup.git_parser._get_repo_root", side_effect=lambda p: p)
     @patch("standup.git_parser.subprocess.run")
     @patch("standup.git_parser.Path.is_dir", return_value=True)
-    def test_empty_output(self, mock_isdir, mock_run):
+    def test_empty_output(self, mock_isdir, mock_run, mock_get_root):
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_result.stdout = ""
