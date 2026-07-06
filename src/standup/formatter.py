@@ -14,6 +14,7 @@ from rich.table import Table
 from rich.text import Text
 
 from standup.grouper import RepoGroup
+from standup.agent import AgentAssessment
 
 
 def _now_header() -> str:
@@ -27,6 +28,7 @@ def render_terminal(
     author: str = "",
     ai_summary: str | None = None,
     show_hashes: bool = False,
+    agent_assessment: AgentAssessment | None = None,
 ) -> None:
     """Render the standup report to the terminal using rich.
 
@@ -35,6 +37,7 @@ def render_terminal(
         author: Author name for the header.
         ai_summary: Optional AI-generated summary.
         show_hashes: Whether to show commit hashes.
+        agent_assessment: Optional Tech Lead Agent assessment.
     """
     console = Console()
 
@@ -114,6 +117,48 @@ def render_terminal(
             )
         )
 
+    # Agent Insights
+    if agent_assessment:
+        console.print()
+        
+        # Determine panel border color based on risk level
+        risk = agent_assessment.risk_level.lower()
+        if "high" in risk:
+            border_style = "bright_red"
+            risk_style = "bold bright_red"
+        elif "medium" in risk:
+            border_style = "yellow"
+            risk_style = "bold yellow"
+        else:
+            border_style = "bright_blue"
+            risk_style = "bold bright_blue"
+
+        agent_text = Text()
+        agent_text.append("🕵️ Tech Lead Agent Insights:\n", style="bold magenta")
+        agent_text.append(f"\n• Risk Level: ", style="bold")
+        agent_text.append(f"{agent_assessment.risk_level}\n", style=risk_style)
+        
+        agent_text.append("• Architectural Impact: ", style="bold")
+        agent_text.append(f"{agent_assessment.impact_summary}\n", style="")
+        
+        if agent_assessment.security_code_quality:
+            agent_text.append("\n⚠️ Security & Code Quality:\n", style="bold yellow")
+            for item in agent_assessment.security_code_quality:
+                agent_text.append(f"  - {item}\n", style="dim")
+                
+        if agent_assessment.recommended_next_steps:
+            agent_text.append("\n📋 Recommended Next Steps:\n", style="bold green")
+            for item in agent_assessment.recommended_next_steps:
+                agent_text.append(f"  - {item}\n", style="")
+
+        console.print(
+            Panel(
+                agent_text,
+                border_style=border_style,
+                padding=(1, 2),
+            )
+        )
+
     console.print()
 
 
@@ -122,6 +167,7 @@ def render_markdown(
     author: str = "",
     ai_summary: str | None = None,
     show_hashes: bool = False,
+    agent_assessment: AgentAssessment | None = None,
 ) -> str:
     """Render the standup report as a Markdown string.
 
@@ -130,6 +176,7 @@ def render_markdown(
         author: Author name for the header.
         ai_summary: Optional AI-generated summary.
         show_hashes: Whether to show commit hashes.
+        agent_assessment: Optional Tech Lead Agent assessment.
 
     Returns:
         Complete Markdown report string.
@@ -175,6 +222,31 @@ def render_markdown(
         lines.append(ai_summary.strip())
         lines.append("")
 
+    # Agent Insights
+    if agent_assessment:
+        lines.append("---")
+        lines.append("")
+        lines.append("## 🕵️ Tech Lead Agent Insights")
+        lines.append("")
+        lines.append(f"**Risk Level:** {agent_assessment.risk_level}")
+        lines.append("")
+        lines.append(f"**Architectural Impact:** {agent_assessment.impact_summary}")
+        lines.append("")
+        
+        if agent_assessment.security_code_quality:
+            lines.append("### ⚠️ Security & Code Quality")
+            lines.append("")
+            for item in agent_assessment.security_code_quality:
+                lines.append(f"- {item}")
+            lines.append("")
+            
+        if agent_assessment.recommended_next_steps:
+            lines.append("### 📋 Recommended Next Steps")
+            lines.append("")
+            for item in agent_assessment.recommended_next_steps:
+                lines.append(f"- {item}")
+            lines.append("")
+
     return "\n".join(lines)
 
 
@@ -184,6 +256,7 @@ def export_markdown(
     author: str = "",
     ai_summary: str | None = None,
     show_hashes: bool = False,
+    agent_assessment: AgentAssessment | None = None,
 ) -> Path:
     """Export the standup report to a Markdown file.
 
@@ -193,6 +266,7 @@ def export_markdown(
         author: Author name for the header.
         ai_summary: Optional AI-generated summary.
         show_hashes: Whether to show commit hashes.
+        agent_assessment: Optional Tech Lead Agent assessment.
 
     Returns:
         Path to the written file.
@@ -202,6 +276,7 @@ def export_markdown(
         author=author,
         ai_summary=ai_summary,
         show_hashes=show_hashes,
+        agent_assessment=agent_assessment,
     )
 
     path = Path(output_path)

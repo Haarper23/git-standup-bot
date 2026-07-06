@@ -16,6 +16,7 @@ from standup.git_parser import parse_commits, parse_multiple_repos
 from standup.grouper import group_commits
 from standup.ai_summarizer import generate_summary
 from standup.formatter import render_terminal, export_markdown
+from standup.agent import run_developer_agent
 
 
 console = Console()
@@ -44,6 +45,11 @@ console = Console()
     "--ai/--no-ai",
     default=None,
     help="Enable/disable AI summary generation.",
+)
+@click.option(
+    "--agent/--no-agent",
+    default=False,
+    help="Enable Tech Lead AI Agent to analyze commits for security, risk, and code quality.",
 )
 @click.option(
     "--provider", "-p",
@@ -82,6 +88,7 @@ def main(
     author: str | None,
     repos: tuple[str, ...],
     ai: bool | None,
+    agent: bool,
     provider: str | None,
     export_path: str | None,
     group_by: str | None,
@@ -192,12 +199,28 @@ def main(
                     "  3. Set OPENAI_API_KEY environment variable[/yellow]"
                 )
 
+    # Agent Assessment (optional Tech Lead Agent)
+    agent_assessment = None
+    if agent and commits:
+        console.print("[dim]🕵️ Tech Lead Agent analyzing code changes...[/dim]")
+        agent_assessment = run_developer_agent(
+            commits,
+            provider=effective_provider,
+            api_key=cfg.ai.api_key,
+            openai_model=cfg.ai.openai_model,
+            ollama_model=cfg.ai.ollama_model,
+            ollama_url=cfg.ai.ollama_url,
+            gemini_model=cfg.ai.gemini_model,
+            gemini_api_key=cfg.ai.gemini_api_key,
+        )
+
     # Render to terminal
     render_terminal(
         repo_groups,
         author=display_author,
         ai_summary=ai_summary,
         show_hashes=effective_show_hashes,
+        agent_assessment=agent_assessment,
     )
 
     # Export to file if requested
@@ -208,6 +231,7 @@ def main(
             author=display_author,
             ai_summary=ai_summary,
             show_hashes=effective_show_hashes,
+            agent_assessment=agent_assessment,
         )
         console.print(f"[green]✅ Report exported to {out}[/green]")
 
