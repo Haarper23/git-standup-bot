@@ -1,0 +1,46 @@
+# Git Standup Bot Configuration
+# Copy this file to .standup.toml and customize
+
+[general]
+# Default author filter (uses git config user.name if empty)
+author = ""
+
+# Default time range: "today", "yesterday", "week", or git-compatible string
+since = "yesterday"
+
+# Timezone for report headers (e.g., "Europe/Istanbul", "US/Eastern")
+timezone = "Europe/Istanbul"
+
+[repos]
+# List of repository paths to scan
+# If empty, uses the current directory
+paths = [
+    # "~/projects/my-api",
+    # "~/projects/my-frontend",
+]
+
+[ai]
+# Enable AI-powered summary generation
+enabled = false
+
+# AI provider: "openai" or "ollama"
+provider = "openai"
+
+# OpenAI model (used when provider = "openai")
+openai_model = "gpt-4o-mini"
+
+# Ollama model (used when provider = "ollama")
+ollama_model = "llama3.1"
+
+# Ollama server URL
+ollama_url = "http://localhost:11434"
+
+[output]
+# Auto-export to markdown file (set path or leave empty to disable)
+export_path = ""
+
+# Show commit hashes in output
+show_hashes = false
+
+# Group commits by: "type" (conventional), "branch", or "repo"
+group_by = "type"
