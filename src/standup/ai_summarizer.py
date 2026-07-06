@@ -131,6 +131,50 @@ def summarize_ollama(
         return None
 
 
+def summarize_gemini(
+    commits: list[Commit],
+    model: str = "gemini-2.5-flash",
+    api_key: str | None = None,
+) -> str | None:
+    """Generate a standup summary using Google Gemini REST API.
+
+    Args:
+        commits: List of commits to summarize.
+        model: Gemini model name.
+        api_key: Gemini API key. Required.
+
+    Returns:
+        AI-generated summary string, or None if failed.
+    """
+    if not api_key or not commits:
+        return None
+
+    commit_text = _format_commits_for_prompt(commits)
+    prompt = f"{SYSTEM_PROMPT}\n\n{USER_PROMPT_TEMPLATE.format(commits=commit_text)}"
+
+    # Google Gemini REST API payload structure
+    payload = json.dumps({
+        "contents": [{
+            "parts": [{"text": prompt}]
+        }]
+    }).encode("utf-8")
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+
+    try:
+        req = urllib.request.Request(
+            url,
+            data=payload,
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            # Extracts text from response: data['candidates'][0]['content']['parts'][0]['text']
+            return data["candidates"][0]["content"]["parts"][0]["text"]
+    except Exception:
+        return None
+
+
 def generate_summary(
     commits: list[Commit],
     provider: str = "openai",
@@ -138,6 +182,8 @@ def generate_summary(
     openai_model: str = "gpt-4o-mini",
     ollama_model: str = "llama3.1",
     ollama_url: str = "http://localhost:11434",
+    gemini_model: str = "gemini-2.5-flash",
+    gemini_api_key: str | None = None,
 ) -> str | None:
     """Generate an AI summary using the configured provider.
 
@@ -146,11 +192,13 @@ def generate_summary(
 
     Args:
         commits: List of commits to summarize.
-        provider: "openai" or "ollama".
-        api_key: OpenAI API key (required for openai provider).
+        provider: "openai", "ollama", or "gemini".
+        api_key: OpenAI API key.
         openai_model: OpenAI model name.
         ollama_model: Ollama model name.
         ollama_url: Ollama server URL.
+        gemini_model: Gemini model name.
+        gemini_api_key: Gemini API key.
 
     Returns:
         Summary string or None.
@@ -158,7 +206,10 @@ def generate_summary(
     if not commits:
         return None
 
+    provider = provider.lower()
     if provider == "ollama":
         return summarize_ollama(commits, model=ollama_model, base_url=ollama_url)
+    elif provider == "gemini":
+        return summarize_gemini(commits, model=gemini_model, api_key=gemini_api_key)
     else:
         return summarize_openai(commits, model=openai_model, api_key=api_key)

@@ -37,11 +37,17 @@ class AIConfig:
     openai_model: str = "gpt-4o-mini"
     ollama_model: str = "llama3.1"
     ollama_url: str = "http://localhost:11434"
+    gemini_model: str = "gemini-2.5-flash"
 
     @property
     def api_key(self) -> str | None:
         """Get OpenAI API key from environment."""
         return os.environ.get("OPENAI_API_KEY")
+
+    @property
+    def gemini_api_key(self) -> str | None:
+        """Get Gemini API key from environment."""
+        return os.environ.get("GEMINI_API_KEY")
 
 
 @dataclass
@@ -109,6 +115,7 @@ def load_config(config_path: Path | None = None) -> Config:
             openai_model=ai_data.get("openai_model", "gpt-4o-mini"),
             ollama_model=ai_data.get("ollama_model", "llama3.1"),
             ollama_url=ai_data.get("ollama_url", "http://localhost:11434"),
+            gemini_model=ai_data.get("gemini_model", "gemini-2.5-flash"),
         )
 
         # Output settings

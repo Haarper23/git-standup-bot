@@ -47,7 +47,7 @@ console = Console()
 )
 @click.option(
     "--provider", "-p",
-    type=click.Choice(["openai", "ollama"], case_sensitive=False),
+    type=click.Choice(["openai", "ollama", "gemini"], case_sensitive=False),
     default=None,
     help="AI provider to use. (default: openai)",
 )
@@ -164,12 +164,19 @@ def main(
             openai_model=cfg.ai.openai_model,
             ollama_model=cfg.ai.ollama_model,
             ollama_url=cfg.ai.ollama_url,
+            gemini_model=cfg.ai.gemini_model,
+            gemini_api_key=cfg.ai.gemini_api_key,
         )
         if ai_summary is None:
             if effective_provider == "openai":
                 console.print(
                     "[yellow]⚠ AI summary unavailable. "
                     "Set OPENAI_API_KEY environment variable.[/yellow]"
+                )
+            elif effective_provider == "gemini":
+                console.print(
+                    "[yellow]⚠ AI summary unavailable. "
+                    "Set GEMINI_API_KEY environment variable.[/yellow]"
                 )
             else:
                 console.print(
