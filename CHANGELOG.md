@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 Development changes and unreleased features will be tracked in this section prior to version tagging.
 
-## [1.0.0] - Pending
+## [1.0.0] - 2026-07-07
 
 ### Added
 - Git activity parsing and repository grouping
