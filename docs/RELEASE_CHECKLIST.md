@@ -4,9 +4,9 @@ This checklist tracks the release readiness tasks for version `v1.0.0`.
 
 ### Source and Git
 - [x] main is synchronized with origin/main
-- [ ] working tree is clean
-- [ ] no secrets or generated files
-- [ ] release documentation merged to main
+- [x] working tree is clean
+- [x] no secrets or generated files
+- [x] release documentation merged to main
 - [ ] release commit confirmed on main
 - [ ] tag points to expected main commit
 
@@ -33,7 +33,7 @@ This checklist tracks the release readiness tasks for version `v1.0.0`.
 - [x] Python 3.13 Windows
 
 ### Release
-- [ ] CHANGELOG Pending replaced with real date
+- [x] CHANGELOG Pending replaced with real date
 - [ ] annotated tag `v1.0.0` created
 - [ ] tag points to expected main commit
 - [ ] GitHub Release created
